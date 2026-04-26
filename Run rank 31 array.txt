@@ -1,0 +1,56 @@
+userland@localhost:~$ nano setup_run_rank31_ifx.sh          userland@localhost:~$ chmod u+x setup_run_rank31_ifx.sh
+userland@localhost:~$ ./setup_run_rank31_ifx.sh                   ============================================================       ARM64/UserLAnd-safe Fortran hypercube demo
+ Uses gfortran instead of Intel ifx/ifort                         ============================================================                                       Installing gfortran if needed...
+Hit:1 https://apt.repos.intel.com/oneapi all InRelease            Hit:2 http://ports.ubuntu.com/ubuntu-ports jammy InRelease        Hit:3 http://ports.ubuntu.com/ubuntu-ports jammy-updates InRelease
+Hit:4 http://ports.ubuntu.com/ubuntu-ports jammy-backports InRelease
+Hit:5 http://ports.ubuntu.com/ubuntu-ports jammy-security InRelease
+Reading package lists... Done    Building dependency tree... Done Reading state information... Done
+3 packages can be upgraded. Run 'apt list --upgradable' to see them.
+N: Skipping acquire of configured file 'main/binary-arm64/Packages' as repository 'https://apt.repos.intel.com/oneapi all InRelease' doesn't support architecture 'arm64'
+Reading package lists... Done    Building dependency tree... Done Reading state information... Done
+gfortran is already the newest version (4:11.2.0-1ubuntu1).       0 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.                                     Compiling...
+                                 Running...                       ------------------------------------------------------------       ARM64/UserLAnd-safe Fortran demo Compiler: gfortran
+ This demonstrates the rank-31 index formula.                      It avoids Intel-only rank-31 array syntax.                                                         Original 4-dimensional labelled-DO style calculation:                                              0 0 0 0  ->   0
+ 0 0 0 1  ->   1                  0 0 1 0  ->   2                  0 0 1 1  ->   3                  0 1 0 0  ->   4
+ 0 1 0 1  ->   5                  0 1 1 0  ->   6                  0 1 1 1  ->   7                  1 0 0 0  ->   8                  1 0 0 1  ->   9
+ 1 0 1 0  ->  10                  1 0 1 1  ->  11                  1 1 0 0  ->  12                  1 1 0 1  ->  13                  1 1 1 0  ->  14
+ 1 1 1 1  ->  15                                                   Now demonstrate a 31-dimensional binary coordinate.               Example: first 4 bits vary as 1,1,1,1 and remaining 27 bits are 0.                                                                  bits31(1:31) =                  1111000000000000000000000000000
+                                  31-dimensional binary index =            2013265920                                                Explanation:
+ 1111000000000000000000000000000 binary                            = 2^30 + 2^29 + 2^28 + 2^27      =            2013265920         ------------------------------------------------------------                                       Done.                            Source:     /home/userland/rank31_gfortran_demo/rank31_gfortran_demo.f90                           Executable: /home/userland/rank31_gfortran_demo/rank31_gfortran_demo                               userland@localhost:~$ cat setup_run_rank31_ifx.sh                 #!/usr/bin/env bash              set -euo pipefail
+                                 echo "============================================================"                                echo " ARM64/UserLAnd-safe Fortran hypercube demo"
+echo " Uses gfortran instead of Intel ifx/ifort"
+echo "============================================================"
+                                 WORKDIR="$HOME/rank31_gfortran_demo"
+SRC="$WORKDIR/rank31_gfortran_demo.f90"                           EXE="$WORKDIR/rank31_gfortran_demo"                                                                mkdir -p "$WORKDIR"
+cd "$WORKDIR"                                                     echo
+echo "Installing gfortran if needed..."                           sudo apt update
+sudo apt install -y gfortran                                      cat > "$SRC" <<'EOF'
+! rank31_gfortran_demo.f90       !                                ! ARM64/UserLAnd-safe version.
+!                                ! This does NOT declare a true rank-31 array, because most portable                                ! Fortran compilers do not support rank 31.
+!                                ! Instead it demonstrates the exact indexing mathematics:
+!                                !   For d binary dimensions:     !
+!   index = 2^(d-1)*i1 + 2^(d-2)*i2 + ... + 2*i(d-1) + id         !
+! Your original 4-dimensional example:                            !
+!   hcube(a,b,c,d) = 8*a + 4*b + 2*c + d                          !
+! For a true 31-dimensional binary hypercube, there would be 2^31 ! possible binary coordinate tuples.                                                               program rank31_gfortran_demo
+  implicit none                                                     integer, parameter :: i8 = selected_int_kind(18)                                                   integer :: a, b, c, d
+  integer(i8) :: value4            integer(i8) :: value31           integer :: bits31(31)
+  integer :: k                                                      print *, 'ARM64/UserLAnd-safe Fortran demo'                       print *, 'Compiler: gfortran'    print *, 'This demonstrates the rank-31 index formula.'           print *, 'It avoids Intel-only rank-31 array syntax.'
+  print *                                                           print *, 'Original 4-dimensional labelled-DO style calculation:'  print *                        
+  do 40 a = 0, 1                      do 30 b = 0, 1                      do 20 c = 0, 1
+           do 10 d = 0, 1                      value4 = 8_i8*a + 4_i8*b + 2_i8*c + d
+              print '(4(" ",i1),"  -> ",i3)', a,b,c,d,value4      10         continue
+20      continue                 30   continue                    40 continue
+                                   print *                          print *, 'Now demonstrate a 31-dimensional binary coordinate.'    print *, 'Example: first 4 bits vary as 1,1,1,1 and remaining 27 bits are 0.'                      print *                        
+  bits31 = 0                       bits31(1) = 1                    bits31(2) = 1
+  bits31(3) = 1                    bits31(4) = 1                                                     value31 = 0_i8
+                                   do k = 1, 31                        value31 = value31 + int(bits31(k), i8) * 2_i8**(31-k)
+  end do                                                            print *, 'bits31(1:31) ='        print '(31(i1))', bits31
+                                   print *                          print *, '31-dimensional binary index = ', value31
+  print *                          print *, 'Explanation:'          print *, '1111000000000000000000000000000 binary'
+  print *, '= 2^30 + 2^29 + 2^28 + 2^27'                            print *, '= ', 2_i8**30 + 2_i8**29 + 2_i8**28 + 2_i8**27
+                                 end program rank31_gfortran_demo EOF                              
+echo                             echo "Compiling..."              gfortran -std=legacy -Wall -Wextra "$SRC" -o "$EXE"
+                                 echo                             echo "Running..."                echo "------------------------------------------------------------"                                "$EXE"                           echo "------------------------------------------------------------"                                                                 echo
+echo "Done."                     echo "Source:     $SRC"          echo "Executable: $EXE"
+userland@localhost:~$
